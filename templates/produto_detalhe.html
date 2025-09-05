@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Detalhes do Produto</h1>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary"><i class="bi bi-arrow-left-circle"></i> Voltar ao Dashboard</a>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>{{ produto.nome }}</span>
+                <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#produtoModal" data-action="edit" data-id="{{ produto.id }}"><i class="bi bi-pencil"></i> Editar</button>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><strong>Código:</strong> {{ produto.codigo }}</li>
+                <li class="list-group-item"><strong>Categoria:</strong> {{ produto.categoria }}</li>
+                <li class="list-group-item"><strong>Preço:</strong> R$ {{ "%.2f"|format(produto.preco) }}</li>
+                <li class="list-group-item"><strong>Estoque Atual:</strong> <span class="badge fs-6 {{ 'bg-warning' if produto.quantidade_estoque <= produto.estoque_minimo else 'bg-success' }}">{{ produto.quantidade_estoque }}</span></li>
+                <li class="list-group-item"><strong>Estoque Mínimo:</strong> {{ produto.estoque_minimo }}</li>
+            </ul>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header">Registrar Movimentação</div>
+            <div class="card-body">
+                <form action="{{ url_for('movimentar_estoque') }}" method="post">
+                    <input type="hidden" name="produto_id" value="{{ produto.id }}">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" name="tipo_movimentacao">
+                            <option value="entrada">Entrada (Compra)</option>
+                            <option value="saida">Saída (Venda)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quantidade</label>
+                        <input type="number" class="form-control" name="quantidade" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Registrar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">Histórico de Movimentações</div>
+            <div class="card-body">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Quantidade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimentacoes %}
+                        <tr>
+                            <td>{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                {% if mov.tipo == 'entrada' %}
+                                    <span class="badge bg-success">Entrada</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Saída</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ mov.quantidade }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center">Nenhuma movimentação registrada para este item.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include '_modal_produto.html' %}
+{% include '_modal_confirm_delete.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Lógica dos modais (copiada do index.html para funcionar aqui também)
+document.addEventListener('DOMContentLoaded', function () {
+    const produtoModal = document.getElementById('produtoModal');
+    produtoModal.addEventListener('show.bs.modal', async event => {
+        const button = event.relatedTarget;
+        const action = button.getAttribute('data-action');
+        const form = document.getElementById('produtoForm');
+        const modalTitle = document.getElementById('produtoModalLabel');
+        if (action === 'edit') {
+            const produtoId = button.getAttribute('data-id');
+            modalTitle.textContent = 'Editar Produto';
+            form.action = `/produto/editar/${produtoId}`;
+            const response = await fetch(`/produto/dados/${produtoId}`);
+            const data = await response.json();
+            form.codigo.value = data.codigo;
+            form.nome.value = data.nome;
+            form.categoria.value = data.categoria;
+            form.preco.value = data.preco;
+            form.quantidade_estoque.value = data.quantidade_estoque;
+            form.estoque_minimo.value = data.estoque_minimo;
+        }
+    });
+});
+</script>
+{% endblock %}
