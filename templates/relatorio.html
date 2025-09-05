@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1 class="mb-4">Relatório de Movimentações</h1>
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Produto</th>
+                        <th>Código</th>
+                        <th>Tipo</th>
+                        <th>Quantidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov in movimentacoes %}
+                    <tr>
+                        <td>{{ mov.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ mov.produto.nome }}</td>
+                        <td>{{ mov.produto.codigo }}</td>
+                        <td>
+                            {% if mov.tipo == 'entrada' %}
+                                <span class="badge bg-success">Entrada</span>
+                            {% else %}
+                                <span class="badge bg-danger">Saída</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ mov.quantidade }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">Nenhuma movimentação registrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

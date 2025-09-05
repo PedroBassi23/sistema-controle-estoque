@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Dashboard</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#produtoModal" data-action="new">
+        <i class="bi bi-plus-circle"></i> Adicionar Novo Produto
+    </button>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center text-bg-light p-3">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-boxes"></i> Total de Produtos</h5>
+                <p class="fs-2">{{ total_produtos }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center text-bg-light p-3">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-archive"></i> Itens em Estoque</h5>
+                <p class="fs-2">{{ total_itens_estoque }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center {{ 'text-bg-warning' if alertas_estoque else 'text-bg-light' }} p-3">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-exclamation-triangle"></i> Alertas de Estoque Baixo</h5>
+                <p class="fs-2">{{ alertas_estoque|length }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        Todos os Produtos
+    </div>
+    <div class="card-body">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nome</th>
+                    <th>Categoria</th>
+                    <th>Preço</th>
+                    <th>Estoque</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for produto in produtos %}
+                <tr class="{{ 'table-warning' if produto in alertas_estoque }}">
+                    <td>{{ produto.codigo }}</td>
+                    <td>{{ produto.nome }}</td>
+                    <td><span class="badge bg-secondary">{{ produto.categoria }}</span></td>
+                    <td>R$ {{ "%.2f"|format(produto.preco) }}</td>
+                    <td><strong>{{ produto.quantidade_estoque }}</strong> (mín: {{ produto.estoque_minimo }})</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#produtoModal" data-action="edit" data-id="{{ produto.id }}">
+                            <i class="bi bi-pencil-square"></i> Editar
+                        </button>
+                        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-id="{{ produto.id }}" data-name="{{ produto.nome }}">
+                            <i class="bi bi-trash"></i> Excluir
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center">Nenhum produto cadastrado ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<div class="modal fade" id="produtoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="produtoModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="produtoForm" method="post">
+                    <input type="hidden" id="produtoId" name="id">
+                    <div class="mb-3">
+                        <label for="codigo" class="form-label">Código (SKU)</label>
+                        <input type="text" class="form-control" id="codigo" name="codigo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome do Produto</label>
+                        <input type="text" class="form-control" id="nome" name="nome" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoria" class="form-label">Categoria</label>
+                        <input type="text" class="form-control" id="categoria" list="categorias-list" name="categoria" required>
+                        <datalist id="categorias-list">
+                            {% for cat in categorias_menu %}
+                            <option value="{{ cat }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div class="row">
+                        <div class="col"><div class="mb-3">
+                            <label for="preco" class="form-label">Preço (R$)</label>
+                            <input type="number" step="0.01" class="form-control" id="preco" name="preco" required>
+                        </div></div>
+                        <div class="col"><div class="mb-3">
+                            <label for="quantidade_estoque" class="form-label">Qtd. em Estoque</label>
+                            <input type="number" class="form-control" id="quantidade_estoque" name="quantidade_estoque" required>
+                        </div></div>
+                        <div class="col"><div class="mb-3">
+                            <label for="estoque_minimo" class="form-label">Estoque Mínimo</label>
+                            <input type="number" class="form-control" id="estoque_minimo" name="estoque_minimo" required>
+                        </div></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir o produto <strong id="productName"></strong>? Esta ação não pode ser desfeita e excluirá todo o histórico de movimentações.</p>
+            </div>
+            <div class="modal-footer">
+                <form id="deleteForm" method="post">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- Lógica para o Modal de Adicionar/Editar ---
+    const produtoModal = document.getElementById('produtoModal');
+    produtoModal.addEventListener('show.bs.modal', async function (event) {
+        const button = event.relatedTarget;
+        const action = button.getAttribute('data-action');
+        const form = document.getElementById('produtoForm');
+        const modalTitle = document.getElementById('produtoModalLabel');
+
+        if (action === 'edit') {
+            const produtoId = button.getAttribute('data-id');
+            modalTitle.textContent = 'Editar Produto';
+            form.action = `/produto/editar/${produtoId}`;
+
+            // Busca os dados do produto no servidor
+            const response = await fetch(`/produto/dados/${produtoId}`);
+            const data = await response.json();
+
+            // Preenche o formulário
+            form.codigo.value = data.codigo;
+            form.nome.value = data.nome;
+            form.categoria.value = data.categoria;
+            form.preco.value = data.preco;
+            form.quantidade_estoque.value = data.quantidade_estoque;
+            form.estoque_minimo.value = data.estoque_minimo;
+
+        } else if (action === 'new') {
+            modalTitle.textContent = 'Adicionar Novo Produto';
+            form.action = "{{ url_for('novo_produto') }}";
+            form.reset(); // Limpa o formulário
+        }
+    });
+
+    // --- Lógica para o Modal de Exclusão ---
+    const deleteModal = document.getElementById('confirmDeleteModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const produtoId = button.getAttribute('data-id');
+        const produtoName = button.getAttribute('data-name');
+        
+        const deleteForm = document.getElementById('deleteForm');
+        deleteForm.action = `/produto/excluir/${produtoId}`;
+        
+        const productNameSpan = document.getElementById('productName');
+        productNameSpan.textContent = `"${produtoName}"`;
+    });
+});
+</script>
+{% endblock %}

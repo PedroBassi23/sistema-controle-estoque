@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Estoque de <span class="text-primary">{{ nome_categoria }}</span></h1>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary"><i class="bi bi-arrow-left-circle"></i> Voltar ao Dashboard</a>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Registrar Movimentação</div>
+            <div class="card-body">
+                <form action="{{ url_for('movimentar_estoque') }}" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Produto</label>
+                        <select class="form-select" name="produto_id" required>
+                            {% for p in produtos %}
+                                <option value="{{ p.id }}">{{ p.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" name="tipo_movimentacao">
+                            <option value="entrada">Entrada (Compra)</option>
+                            <option value="saida">Saída (Venda)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quantidade</label>
+                        <input type="number" class="form-control" name="quantidade" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Registrar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nome</th>
+                            <th>Estoque</th>
+                            <th class="text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for produto in produtos %}
+                        <tr class="{{ 'table-warning' if produto.quantidade_estoque <= produto.estoque_minimo }}">
+                            <td>{{ produto.codigo }}</td>
+                            <td>{{ produto.nome }}</td>
+                            <td><strong>{{ produto.quantidade_estoque }}</strong> (mín: {{ produto.estoque_minimo }})</td>
+                            <td class="text-center">
+                                <a href="{{ url_for('index') }}" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#produtoModal" data-action="edit" data-id="{{ produto.id }}">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </a>
+                                <a href="{{ url_for('index') }}" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-id="{{ produto.id }}" data-name="{{ produto.nome }}">
+                                    <i class="bi bi-trash"></i> Excluir
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center">Nenhum produto nesta categoria.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
