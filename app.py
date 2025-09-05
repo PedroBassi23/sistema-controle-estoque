@@ -1,4 +1,4 @@
-# app.py (Versão PRO)
+# app.py (Versão Final - PRO v2)
 
 import os
 import csv
@@ -14,11 +14,11 @@ app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'estoque.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'sua-chave-secreta-ainda-mais-segura'
+app.config['SECRET_KEY'] = 'uma-chave-secreta-muito-forte-e-dificil-de-adivinhar'
 
 db = SQLAlchemy(app)
 
-# --- MODELOS DO BANCO DE DADOS (sem mudanças) ---
+# --- MODELOS DO BANCO DE DADOS ---
 
 class Produto(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,21 +44,22 @@ class Movimentacao(db.Model):
 
 @app.context_processor
 def inject_categorias():
-    categorias_tuplas = db.session.query(Produto.categoria).distinct().all()
-    categorias = sorted([c[0] for c in categorias_tuplas])
+    try:
+        categorias_tuplas = db.session.query(Produto.categoria).distinct().all()
+        categorias = sorted([c[0] for c in categorias_tuplas])
+    except Exception:
+        categorias = []
     return dict(categorias_menu=categorias)
 
 @app.route('/')
 def index():
     produtos = Produto.query.order_by(Produto.nome).all()
     
-    # Cálculos para o Dashboard
     total_produtos = len(produtos)
     total_itens_estoque = db.session.query(func.sum(Produto.quantidade_estoque)).scalar() or 0
     valor_total_estoque = db.session.query(func.sum(Produto.quantidade_estoque * Produto.preco)).scalar() or 0
     alertas_estoque_count = sum(1 for p in produtos if p.quantidade_estoque <= p.estoque_minimo)
 
-    # Dados para o gráfico de distribuição de estoque por categoria
     dist_estoque = db.session.query(
         Produto.categoria, 
         func.sum(Produto.quantidade_estoque)
@@ -82,7 +83,6 @@ def produto_detalhe(id):
     movimentacoes_produto = Movimentacao.query.filter_by(produto_id=id).order_by(Movimentacao.data.desc()).all()
     return render_template('produto_detalhe.html', produto=produto, movimentacoes=movimentacoes_produto)
 
-# --- ROTAS DE CRUD (sem grandes mudanças, apenas redirecionamentos) ---
 @app.route('/produto/novo', methods=['POST'])
 def novo_produto():
     codigo_existente = Produto.query.filter_by(codigo=request.form['codigo']).first()
@@ -102,7 +102,7 @@ def editar_produto(id):
     codigo_existente = Produto.query.filter(Produto.codigo == novo_codigo, Produto.id != id).first()
     if codigo_existente:
         flash(f"Erro: O código '{novo_codigo}' já pertence a outro produto!", 'danger')
-        return redirect(url_for('index'))
+        return redirect(request.referrer or url_for('index'))
     produto.codigo, produto.nome, produto.categoria, produto.preco, produto.quantidade_estoque, produto.estoque_minimo = novo_codigo, request.form['nome'], request.form['categoria'], float(request.form['preco']), int(request.form['quantidade_estoque']), int(request.form['estoque_minimo'])
     db.session.commit()
     flash('Produto atualizado com sucesso!', 'success')
@@ -142,18 +142,12 @@ def movimentar_estoque():
     db.session.commit()
     return redirect(request.referrer or url_for('index'))
 
-# --- ROTAS DE RELATÓRIO COM FILTROS E EXPORTAÇÃO ---
-
 @app.route('/relatorio', methods=['GET'])
 def relatorio():
-    # Pega os parâmetros do filtro da URL
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     tipo_mov = request.args.get('tipo_mov')
-
     query = Movimentacao.query
-
-    # Aplica os filtros se eles existirem
     if start_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
         query = query.filter(cast(Movimentacao.data, Date) >= start_date)
@@ -162,24 +156,15 @@ def relatorio():
         query = query.filter(cast(Movimentacao.data, Date) <= end_date)
     if tipo_mov and tipo_mov in ['entrada', 'saida']:
         query = query.filter(Movimentacao.tipo == tipo_mov)
-
     movimentacoes = query.order_by(Movimentacao.data.desc()).all()
-    
-    return render_template('relatorio.html', 
-                           movimentacoes=movimentacoes,
-                           start_date=start_date_str,
-                           end_date=end_date_str,
-                           tipo_mov=tipo_mov)
+    return render_template('relatorio.html', movimentacoes=movimentacoes, start_date=start_date_str, end_date=end_date_str, tipo_mov=tipo_mov)
 
 @app.route('/relatorio/exportar')
 def exportar_relatorio():
-    # Pega os mesmos filtros da rota de relatório
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     tipo_mov = request.args.get('tipo_mov')
-
     query = Movimentacao.query
-
     if start_date_str:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
         query = query.filter(cast(Movimentacao.data, Date) >= start_date)
@@ -188,35 +173,15 @@ def exportar_relatorio():
         query = query.filter(cast(Movimentacao.data, Date) <= end_date)
     if tipo_mov and tipo_mov in ['entrada', 'saida']:
         query = query.filter(Movimentacao.tipo == tipo_mov)
-
     movimentacoes = query.order_by(Movimentacao.data.desc()).all()
-
-    # Gera o CSV em memória
     output = io.StringIO()
     writer = csv.writer(output)
-    
-    # Escreve o cabeçalho
     writer.writerow(['ID', 'Data', 'Produto', 'Código', 'Categoria', 'Tipo', 'Quantidade'])
-    
-    # Escreve os dados
     for mov in movimentacoes:
-        writer.writerow([
-            mov.id, 
-            mov.data.strftime('%Y-%m-%d %H:%M:%S'), 
-            mov.produto.nome, 
-            mov.produto.codigo,
-            mov.produto.categoria,
-            mov.tipo,
-            mov.quantidade
-        ])
-    
+        writer.writerow([mov.id, mov.data.strftime('%Y-%m-%d %H:%M:%S'), mov.produto.nome, mov.produto.codigo, mov.produto.categoria, mov.tipo, mov.quantidade])
     output.seek(0)
-    
-    return Response(output,
-                    mimetype="text/csv",
-                    headers={"Content-Disposition": "attachment;filename=relatorio_movimentacoes.csv"})
+    return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=relatorio_movimentacoes.csv"})
 
-# --- INICIALIZAÇÃO ---
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
